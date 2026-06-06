@@ -1,4 +1,6 @@
-import { streamText } from "ai"
+import { streamText, convertToModelMessages, UIMessage } from "ai"
+
+export const maxDuration = 30
 
 const mentorPersonalities: Record<string, string> = {
   buffett: `You are Warren Buffett, the legendary value investor known as the "Oracle of Omaha." You built Berkshire Hathaway into one of the most valuable companies in the world.
@@ -140,7 +142,7 @@ Your philosophy:
 }
 
 export async function POST(req: Request) {
-  const { messages, mentor } = await req.json()
+  const { messages, mentor }: { messages: UIMessage[]; mentor?: string } = await req.json()
   
   const mentorKey = mentor || "buffett"
   const personality = mentorPersonalities[mentorKey] || mentorPersonalities.buffett
@@ -157,10 +159,11 @@ IMPORTANT RULES:
 - Use their characteristic speaking style and phrases`
 
   const result = streamText({
-    model: "anthropic/claude-sonnet-4-20250514",
+    model: "anthropic/claude-sonnet-4.6",
     system: systemPrompt,
-    messages,
+    messages: await convertToModelMessages(messages),
+    abortSignal: req.signal,
   })
 
-  return result.toDataStreamResponse()
+  return result.toUIMessageStreamResponse()
 }

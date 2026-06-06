@@ -1,17 +1,37 @@
 "use client"
 
+import { useState } from "react"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { Send, Loader2, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
+function getMessageText(msg: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!msg.parts || !Array.isArray(msg.parts)) return ""
+  return msg.parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text || "")
+    .join("")
+}
+
 export function AskAI() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/chat",
+  const [input, setInput] = useState("")
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
   })
 
+  const isLoading = status === "streaming" || status === "submitted"
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+    sendMessage({ text: input })
+    setInput("")
+  }
+
   return (
-    <section className="py-16 px-4">
+    <section id="ask-ai" className="py-16 px-4">
       <div className="max-w-[680px] mx-auto">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue/10 text-blue text-sm font-medium mb-4">
@@ -39,9 +59,7 @@ export function AskAI() {
                   {["What is investing?", "How do I budget?", "What is compound interest?"].map((suggestion) => (
                     <button
                       key={suggestion}
-                      onClick={() => {
-                        handleInputChange({ target: { value: suggestion } } as React.ChangeEvent<HTMLInputElement>)
-                      }}
+                      onClick={() => setInput(suggestion)}
                       className="px-3 py-1.5 text-sm bg-surface border border-border rounded-full text-muted-foreground hover:text-foreground hover:border-emerald transition-colors"
                     >
                       {suggestion}
@@ -62,7 +80,7 @@ export function AskAI() {
                         : "bg-surface border border-border text-foreground"
                     }`}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{getMessageText(msg)}</p>
                   </div>
                 </div>
               ))
@@ -81,8 +99,8 @@ export function AskAI() {
             <div className="flex gap-2">
               <Input
                 type="text"
-                value={input || ""}
-                onChange={handleInputChange}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
                 placeholder="Type your question..."
                 className="flex-1 rounded-full bg-surface border-border"
                 disabled={isLoading}
@@ -90,7 +108,7 @@ export function AskAI() {
               <Button
                 type="submit"
                 size="icon"
-                disabled={!input?.trim() || isLoading}
+                disabled={!input.trim() || isLoading}
                 className="rounded-full bg-emerald text-black hover:bg-emerald/90 shrink-0"
               >
                 <Send className="h-4 w-4" />

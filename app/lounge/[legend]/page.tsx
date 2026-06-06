@@ -1,12 +1,13 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowLeft, Send, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 
 const legends: Record<string, { name: string; avatar: string; color: string; greeting: string }> = {
   buffett: {
@@ -59,19 +60,38 @@ const legends: Record<string, { name: string; avatar: string; color: string; gre
   },
 }
 
+function getMessageText(msg: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!msg.parts || !Array.isArray(msg.parts)) return ""
+  return msg.parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text || "")
+    .join("")
+}
+
 export default function LegendChatPage() {
   const params = useParams()
   const legendSlug = params.legend as string
   const legend = legends[legendSlug]
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [input, setInput] = useState("")
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/mentor",
-    body: { mentor: legendSlug },
-    initialMessages: legend ? [
-      { id: "greeting", role: "assistant", content: legend.greeting }
-    ] : [],
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/mentor",
+      prepareSendMessagesRequest: ({ messages }) => ({
+        body: { messages, mentor: legendSlug },
+      }),
+    }),
   })
+
+  const isLoading = status === "streaming" || status === "submitted"
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+    sendMessage({ text: input })
+    setInput("")
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })

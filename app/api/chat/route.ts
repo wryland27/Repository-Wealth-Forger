@@ -1,7 +1,9 @@
-import { streamText } from "ai"
+import { streamText, convertToModelMessages, UIMessage } from "ai"
+
+export const maxDuration = 30
 
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  const { messages }: { messages: UIMessage[] } = await req.json()
 
   const systemPrompt = `You are a friendly financial education assistant for WealthForger, a free platform teaching young people (ages 15-25) about money. 
 
@@ -27,10 +29,11 @@ Topics you can help with:
 If asked about something outside financial education, politely redirect to money topics.`
 
   const result = streamText({
-    model: "anthropic/claude-sonnet-4-20250514",
+    model: "anthropic/claude-sonnet-4.6",
     system: systemPrompt,
-    messages,
+    messages: await convertToModelMessages(messages),
+    abortSignal: req.signal,
   })
 
-  return result.toDataStreamResponse()
+  return result.toUIMessageStreamResponse()
 }
